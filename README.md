@@ -1,108 +1,51 @@
-# Minecraft on NixOS
+# Servidor de Minecraft
 
-Local Minecraft Java server using Docker, Paper, Geyser and Floodgate.
+Servidor local con Docker Compose, Paper, Geyser y Floodgate para jugar desde Java y Bedrock (incluidos iPhone/iPad).
 
-- Java clients: `<NIXOS-LAN-IP>:25565`
-- Bedrock/iPhone/iPad: `<NIXOS-LAN-IP>:19132`
-- Persistent server/world data: `./data`
-- Configuration: Git
-- World backups: Restic
+## Requisitos
 
-## First start
+Docker instalado y en ejecución, con `docker compose` disponible. Funciona en Linux, macOS y Windows con contenedores Linux.
 
-Make sure Docker is enabled in NixOS, for example:
+## Arrancar y parar
 
-```nix
-virtualisation.docker.enable = true;
-users.users.<your-user>.extraGroups = [ "docker" ];
-```
-
-Then:
+Desde la carpeta del repositorio:
 
 ```bash
-cp .env.example .env
-printf '%s\n' 'choose-a-long-backup-password' > .restic-password
-chmod 600 .restic-password
-
-direnv allow
-mc-up
-mc-logs
+docker compose up -d
+docker compose logs -f minecraft
 ```
 
-The first start downloads the Minecraft server and plugins.
+El primer arranque descarga el servidor y los plugins. Espera a que aparezca `Done` en los logs. Sal con Ctrl+C; el servidor seguirá funcionando.
 
-## Where does Restic store the backup?
+La configuración incluye `EULA: "TRUE"`: al arrancar aceptas la [EULA de Minecraft](https://www.minecraft.net/eula).
 
-Restic itself is only the backup program. `RESTIC_REPOSITORY` tells it where the
-encrypted backup repository lives.
-
-The example `.env.example` uses:
-
-```text
-/mnt/backup-disk/restic/minecraft
-```
-
-That is useful only if `/mnt/backup-disk` is actually another disk/NAS mount.
-Putting the Restic repository on the same PC/disk protects against accidental
-world changes, but NOT against losing or breaking that PC.
-
-For surviving a PC change, point `RESTIC_REPOSITORY` at storage outside the PC:
-a NAS, another machine, or a supported cloud/object-storage backend.
-
-## Initialize Restic
-
-After choosing the destination in `.env`:
+Para parar:
 
 ```bash
-set -a; source .env; set +a
-restic init
+docker compose down
 ```
 
-Only once.
+Para volver a arrancar, usa `docker compose up -d`.
 
-Then:
+## Conectarse
 
-```bash
-mc-backup
-```
+Usa la IP local del ordenador que ejecuta Docker, visible en los ajustes de red. Todos los dispositivos deben estar en la misma red doméstica.
 
-List snapshots:
+- **Java:** Multijugador → Añadir servidor → `IP-DEL-SERVIDOR:25565`. En el propio ordenador puedes usar `localhost:25565`.
+- **Bedrock / iPhone / iPad:** Jugar → Servidores → Añadir servidor. Dirección: `IP-DEL-SERVIDOR`; puerto: `19132`.
 
-```bash
-set -a; source .env; set +a
-restic snapshots
-```
+Si hay un cortafuegos activo, permite TCP 25565 y UDP 19132 para la red local.
 
-Restore:
+## Datos y configuración
 
-```bash
-mc-restore
-```
+El mundo, los jugadores y los ajustes se guardan en **`./data`**, dentro de este repositorio, mediante el montaje `./data:/data`. Se conservan al parar o recrear el contenedor. Su contenido queda excluido de Git.
 
-## Git vs data
+Para guardar una copia manual, para el servidor y copia la carpeta `data` a otro lugar. Para cambiar ajustes generados, para el servidor, edita los archivos de `data` y arráncalo de nuevo.
 
-`data/` is physically inside this project directory, but ignored by Git.
-That gives you the convenient layout you wanted without filling Git history
-with Minecraft region files.
+Puedes cambiar la memoria en `compose.yaml` (por defecto `2G`).
 
-If you explicitly want GitHub to contain the world too, remove the `data/*`
-rules from `.gitignore`; for a small personal world it can work, but Restic is
-the safer long-term backup mechanism.
+La imagen está fijada a `itzg/minecraft-server:2026.9.0`, la [última release publicada](https://github.com/itzg/docker-minecraft-server/releases/tag/2026.9.0) comprobada el 10 de septiembre de 2026. El tag corresponde a la imagen Docker; la versión de Minecraft se controla por separado con la variable `VERSION`. Sin ella, se descarga la versión estable actual, y los plugins también usan sus descargas actuales.
 
-## LAN access
+## Aprender a jugar
 
-Run:
-
-```bash
-mc-ip
-```
-
-Use that LAN IP from devices on the same home network.
-
-Your NixOS firewall must allow TCP 25565 and UDP 19132 if the firewall is enabled.
-For example:
-
-```nix
-networking.firewall.allowedTCPPorts = [ 25565 ];
-networking.firewall.allowedUDPPorts = [ 19132 ];
-```
+Lee la [guía breve de primeros pasos](GUIA-JUEGO.md).

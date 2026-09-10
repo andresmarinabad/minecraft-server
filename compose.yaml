@@ -1,8 +1,7 @@
 services:
   minecraft:
-    image: itzg/minecraft-server:latest
+    image: itzg/minecraft-server:2026.9.0
     container_name: minecraft
-    pull_policy: daily
     restart: unless-stopped
     tty: true
     stdin_open: true
