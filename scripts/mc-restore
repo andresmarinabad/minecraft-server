@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ -f .env ]] && set -a && source .env && set +a
+
+: "${RESTIC_REPOSITORY:?Set RESTIC_REPOSITORY in .env}"
+: "${RESTIC_PASSWORD_FILE:?Set RESTIC_PASSWORD_FILE in .env}"
+
+echo "Available Minecraft snapshots:"
+restic snapshots --tag minecraft
+echo
+read -r -p "Snapshot ID to restore (or latest): " SNAPSHOT
+
+docker compose down
+
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+restic restore "$SNAPSHOT" --target "$tmp"
+
+src="$(find "$tmp" -type d -path '*/data' | head -n 1)"
+if [[ -z "$src" ]]; then
+  echo "Could not locate restored data directory."
+  exit 1
+fi
+
+rm -rf ./data
+mkdir -p ./data
+cp -a "$src"/. ./data/
+
+echo "Restored. Start with: mc-up"
