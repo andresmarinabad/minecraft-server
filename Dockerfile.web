@@ -1,0 +1,41 @@
+FROM alpine/git AS source
+
+WORKDIR /src
+RUN git clone --depth=1 --branch next \
+    https://github.com/zardoy/minecraft-web-client.git .
+
+FROM node:18-alpine AS build
+
+RUN apk add --no-cache git
+WORKDIR /app
+
+COPY --from=source /src /app
+
+RUN corepack enable
+
+ARG DOWNLOAD_SOUNDS=false
+ARG DISABLE_SERVICE_WORKER=false
+ARG CONFIG_JSON_SOURCE=REMOTE
+
+RUN node ./scripts/dockerPrepare.mjs
+RUN pnpm i
+
+RUN DISABLE_SERVICE_WORKER=$DISABLE_SERVICE_WORKER \
+    CONFIG_JSON_SOURCE=$CONFIG_JSON_SOURCE \
+    pnpm run build
+
+FROM node:18-alpine
+
+RUN apk add --no-cache git
+WORKDIR /app
+
+COPY --from=build /app/dist /app/dist
+COPY --from=build /app/server.js /app/server.js
+
+RUN npm install -g pnpm@10.8.0 \
+    && npm init -y \
+    && pnpm add express github:zardoy/prismarinejs-net-browserify compression cors
+
+EXPOSE 8080
+
+ENTRYPOINT ["node", "server.js", "--prod"]

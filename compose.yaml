@@ -1,21 +1,31 @@
 services:
   minecraft:
     image: itzg/minecraft-server:2026.9.0
-    container_name: minecraft
     restart: unless-stopped
-    tty: true
-    stdin_open: true
+
     ports:
-      - "25565:25565/tcp"
-      - "19132:19132/udp"
+      - "25565:25565"
+
     environment:
       EULA: "TRUE"
       TYPE: "PAPER"
-      MEMORY: "${MC_MEMORY:-2G}"
-      TZ: "${TZ:-Europe/Madrid}"
-      ENABLE_RCON: "true"
-      PLUGINS: |
-        https://download.geysermc.org/v2/projects/geyser/versions/latest/builds/latest/downloads/spigot
-        https://download.geysermc.org/v2/projects/floodgate/versions/latest/builds/latest/downloads/spigot
+      VERSION: "1.21.4"
+      MEMORY: "2G"
+      ONLINE_MODE: "FALSE"
+      ENABLE_RCON: "FALSE"
+      ENFORCE_SECURE_PROFILE: "FALSE"
+
     volumes:
       - ./data:/data
+
+  minecraft-web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      - minecraft
