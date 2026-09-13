@@ -1,101 +1,159 @@
-# Servidor de Minecraft
+# Local Minecraft Server
 
-Un servidor en Docker Compose, con el mundo en `./data`. Para jugar abres Minecraft como una aplicación normal en tu PC. El servidor no tiene una página web.
+A minimal local Minecraft setup running entirely with Docker.
 
-## Qué necesitas
+It provides:
 
-| Componente | Para qué sirve | Cómo se prepara |
-| --- | --- | --- |
-| Docker y Docker Compose | Ejecutar el servidor | En tu PC ya funcionan. |
-| Prism Launcher y Java | Descargar y ejecutar Minecraft Java | Los proporciona el `flake.nix` de este repositorio. |
-| Cuenta Microsoft con Minecraft Java Edition | Iniciar sesión y jugar | Debes tener acceso al juego; Prism es gratis, pero no incluye una licencia de Minecraft. |
+- A **Minecraft Java 1.21.4** server using Paper.
+- A browser-based Minecraft client.
+- Persistent world data in the local `data/` directory.
+- No local Minecraft or Java installation required.
 
-El servidor no depende de NixOS. El flake es una comodidad opcional para jugar desde Linux / NixOS, con las dependencias gráficas y Java incluidos.
+## Requirements
 
-## 1. Arrancar el servidor
+Only Docker with Docker Compose support is required.
 
-Desde este repositorio:
+## Start the server
+
+From the repository directory:
 
 ```bash
 docker compose up -d
+```
+
+If the web client image has not been built yet, or `Dockerfile.web` has changed:
+
+```bash
+docker compose up -d --build
+```
+
+## Check server startup
+
+Follow the Minecraft server logs:
+
+```bash
 docker compose logs -f minecraft
 ```
 
-Espera a que aparezca `Done`. Ctrl+C cierra los logs sin parar el servidor. El primer arranque descarga Paper y los plugins Geyser/Floodgate para admitir también jugadores Bedrock.
+Wait until you see:
 
-La configuración contiene `EULA: "TRUE"`: al arrancar aceptas la [EULA de Minecraft](https://www.minecraft.net/eula).
-
-## 2. Abrir Minecraft en tu NixOS
-
-Desde una terminal de tu escritorio, en este repositorio:
-
-```bash
-nix run path:. -- --dir "$PWD/.minecraft-client"
+```text
+Done (...)! For help, type "help"
 ```
 
-Nix descarga Prism Launcher, Java 25/21 y sus bibliotecas. No necesitas instalar Java a mano, usar `nix profile install` ni modificar tu NixOS. El `flake.lock` fija las versiones de las dependencias.
+Press `Ctrl+C` to stop following the logs. This does not stop the server.
 
-Prism guarda los ajustes, la cuenta y el juego en **`.minecraft-client/`**, dentro del repositorio y fuera de Git. Usa siempre el comando anterior para abrir esa misma instalación.
+## Play
 
-**Solo la primera vez, dentro de Prism:**
+Open the web client in your browser:
 
-1. Completa el asistente inicial. En la selección de Java, usa la detección automática y elige **Java 25** para Minecraft 26.2.
-2. En **Ajustes → Cuentas → Añadir Microsoft**, inicia sesión con la cuenta que tenga Minecraft Java. Sigue el enlace y el código que muestre Prism.
-3. Pulsa **Añadir instancia**, elige **Minecraft 26.2**, sin mods, y acepta. Esa es la versión del servidor comprobada en sus logs.
-4. Abre la instancia. Prism descarga automáticamente Minecraft y sus archivos.
-5. En el juego: **Multijugador → Conexión directa → `localhost:25565`**.
-
-Nix automatiza la preparación del lanzador y Java; Prism automatiza la descarga del juego. El inicio de sesión y la selección inicial de instancia los haces en la aplicación. Después basta con abrir Prism y lanzar la instancia guardada.
-
-Si actualizas el servidor, comprueba su versión en `docker compose logs minecraft`, en la línea `Starting minecraft server version`, y usa esa misma versión en Prism.
-
-## NixOS: configuración del sistema solo si falta Docker o flakes
-
-En tu PC no hace falta aplicar esto ahora: Docker y Nix con flakes ya están funcionando. Para preparar otro NixOS, añade estas opciones a su configuración existente:
-
-```nix
-{
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
-  virtualisation.docker.enable = true;
-  users.users.TU_USUARIO.extraGroups = [ "docker" ];
-
-  # Para que entren otros dispositivos de tu red:
-  networking.firewall.allowedTCPPorts = [ 25565 ];
-  networking.firewall.allowedUDPPorts = [ 19132 ];
-}
+```text
+http://localhost:8080
 ```
 
-Sustituye `TU_USUARIO` y aplica la configuración con tu comando habitual de `nixos-rebuild switch` (si tu sistema usa flakes, conserva su ruta y nombre de host en `--flake`). Cierra sesión y vuelve a entrar si acabas de añadir tu usuario al grupo `docker`.
+Connect using:
 
-## Jugar desde otros dispositivos
+```text
+Server:   minecraft:25565
+Proxy:    http://localhost:8080
+Version:  1.21.4
+Username: <your-name>
+```
 
-Los demás jugadores necesitan su propio juego y cuenta. Usa la IP local del PC servidor, visible en sus ajustes de red:
+The Minecraft server and web client run on the same Docker network, so the web client can reach the server using the hostname `minecraft`.
 
-- **Java en otro PC:** `IP-DEL-SERVIDOR:25565`.
-- **Bedrock / iPhone / iPad:** añade un servidor con dirección `IP-DEL-SERVIDOR` y puerto `19132`.
+## Stop
 
-Todos deben estar en la misma red doméstica. Si hay un cortafuegos activo, permite TCP 25565 y UDP 19132. En el propio PC servidor, el cliente Java usa `localhost:25565`.
-
-## Parar, guardar y eliminar
-
-Para parar el servidor y quitar el contenedor y la red del proyecto:
+Stop and remove the containers:
 
 ```bash
 docker compose down
 ```
 
-El mundo permanece en **`data/`**. Para una copia manual, para el servidor y copia esa carpeta a otro lugar. El cliente se cierra desde su ventana.
+Your world is not deleted. Minecraft data is stored in:
 
-Si quieres retirar el montaje:
+```text
+./data
+```
 
-1. `docker compose down --rmi all` quita también la imagen del servidor si no la usa otro contenedor.
-2. Borra `.minecraft-client/` para eliminar la sesión y el juego descargado por Prism.
-3. Borra `data/` solo si quieres eliminar definitivamente el mundo.
+Start it again with:
 
-`nix run` no añade Prism a tu configuración del sistema ni a un perfil permanente. Los paquetes descargados quedan en la caché de Nix y se pueden liberar con `nix store gc` cuando no estén en uso ni referenciados. Ese comando recoge todos los paquetes sin referencias, no solo los de este proyecto.
+```bash
+docker compose up -d
+```
 
-## Configuración y primeros pasos
+## Restart
 
-En `compose.yaml` puedes cambiar la memoria del servidor (por defecto `2G`). La imagen está fijada a [2026.9.0](https://github.com/itzg/docker-minecraft-server/releases/tag/2026.9.0), sin el tag `latest`. La versión del juego se controla por separado con `VERSION`; sin esa variable, el servidor descarga la versión estable actual. Los plugins usan sus descargas actuales.
+```bash
+docker compose restart
+```
 
-Para aprender a jugar, lee la [guía breve de primeros pasos](GUIA-JUEGO.md).
+## View logs
+
+Minecraft server:
+
+```bash
+docker compose logs -f minecraft
+```
+
+Web client:
+
+```bash
+docker compose logs -f minecraft-web
+```
+
+## Server configuration
+
+The local server intentionally runs in offline mode:
+
+```yaml
+ONLINE_MODE: "FALSE"
+```
+
+This allows the browser client to join using a local username without Microsoft/Mojang authentication.
+
+Secure profiles and RCON are also disabled because they are not required for this local setup.
+
+## World data
+
+All Minecraft server data is persisted under:
+
+```text
+data/
+```
+
+Do not delete this directory unless you intentionally want to delete/reset the world.
+
+A simple backup can therefore be made by stopping the server and copying the `data/` directory:
+
+```bash
+docker compose down
+cp -a data data-backup
+docker compose up -d
+```
+
+## Rebuild the web client
+
+If the upstream web client changes or the local Dockerfile is modified:
+
+```bash
+docker compose build --no-cache minecraft-web
+docker compose up -d
+```
+
+## Architecture
+
+```text
+Browser
+   |
+   | http://localhost:8080
+   v
+Minecraft Web Client
+   |
+   | minecraft:25565
+   v
+Paper Minecraft Server
+   |
+   v
+./data
+```
