@@ -14,18 +14,3 @@ services:
       ONLINE_MODE: "FALSE"
       ENABLE_RCON: "FALSE"
       ENFORCE_SECURE_PROFILE: "FALSE"
-
-    volumes:
-      - ./data:/data
-
-  minecraft-web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    restart: unless-stopped
-
-    ports:
-      - "8080:8080"
-
-    depends_on:
-      - minecraft
